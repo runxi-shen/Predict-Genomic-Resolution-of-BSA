@@ -176,14 +176,13 @@ def IM_genomic_resolution_non_treeseq(pop_file, causal_mut, snp_sep, sample_size
             recom_points['aa homo'].append(min(recom_point_1_, recom_point_2_))
         else:
             recom_points['hetero'].append(min(recom_point_1_, recom_point_2_))
-        
-    # print('AA Homozygous: ', len(recom_points['AA homo']))
-    # print('aa Homozygous: ', len(recom_points['aa homo']))
 
+    ## sample homozygous AA in priority
     if (sample_size <= len(recom_points['AA homo'])):
         recom_point = min(np.random.choice(recom_points['AA homo'], sample_size, replace=False))
+    ## sample heterozygous when homo AA not enough for the sample size
     elif (sample_size <= len(recom_points['AA homo']) + len(recom_points['hetero'])):
-        recom_point = min(np.random.choice(recom_points['hetero'], 2*(sample_size-len(recom_points['AA homo'])), replace=False))
+        recom_point = min(np.random.choice(recom_points['hetero'], (sample_size-len(recom_points['AA homo'])), replace=False))
         recom_point = min(min(recom_points['AA homo']), recom_point)
     else:
         return np.nan
@@ -206,7 +205,7 @@ def main():
     output_file_prefix = 'SLiM_NV_IM'
 
     # number of simulations per each run
-    num_sim = 1000
+    num_sim = 5000
 
     count = mp.cpu_count()
     pool = mp.Pool(processes=count//2)
@@ -221,7 +220,7 @@ def main():
     slim_output_files = list(filter(lambda x : output_file_prefix in x and x.endswith('.txt'),os.listdir()))
     print("Number of SLiM files:", len(slim_output_files))
     
-    S_s = [2**x for x in range(1,5)] 
+    S_s = [2**x for x in range(1,7)] 
     resolution_all = OrderedDict([(S,[]) for S in S_s])
 
     for S in S_s:
@@ -234,7 +233,7 @@ def main():
     remove_txt = pool.map(os.remove, slim_output_files)
     print("Number of SLiM files:", len(list(filter(lambda x : 'Tree_Seq_Popsize_'+str(Ne)+'_' in x and x.endswith('_gen'+str(T+1)+'.txt'),os.listdir()))))
 
-    f_out = 'IM_Open-win_Res_100MbChrom_Ne%s_%scM_Non-TreeSeq_s-top16' % (Ne, float(R)*1e8)+'.pckl'
+    f_out = 'IM_Open-win_Res_100MbChrom_Ne{}_Gen{}_{}cM_Non-TreeSeq_{}kSims'.format(Ne, T, float(R)*1e8, num_sim//1000)+'.pckl'
     print(f_out)
 
     with open(f_out, 'wb') as f:  # Python 3: open(..., 'wb')

@@ -175,7 +175,7 @@ def main():
     """
         Define some simulation parameters
     """
-    Cap_N = '1200'
+    Cap_N = '2000'
     Ne = sys.argv[1]
     # Remember: T = 11 is for generation starting index as 1 in SLiM model
     # This is equivalent to t = 10 for zero-index in our paper's analytical model
@@ -185,7 +185,7 @@ def main():
     mut_pos = '1e2'
     window_type = 'open'
     # number of simulations
-    num_sim = 2000
+    num_sim = 5000
 
     slim_file = 'SLiM_NV_BSA'
     
@@ -219,7 +219,7 @@ def main():
     remove_trees = pool.map(os.remove, tree_files)
 
     # output results into pickle file for plotting
-    with open('BSA_Open-win_Res_100MbChrom_Ne%s_Gen%s_%scM' % (Ne, T, float(R)*1e8)+'_2kSims.pckl', 'wb') as f:  # Python 3: open(..., 'wb')
+    with open('BSA_Open-win_Res_100MbChrom_Ne{}_Gen{}_{}cM_{}kSims.pckl'.format(Ne, T, float(R)*1e8, num_sim//1000), 'wb') as f:  # Python 3: open(..., 'wb')
         pickle.dump(resolution_all, f, pickle.HIGHEST_PROTOCOL)
 
 if __name__ == '__main__':

@@ -172,7 +172,7 @@ def main():
     mut_pos = '1e4'
     window_type = 'open'
     # number of simulations per each run
-    num_sim = 1000
+    num_sim = 5000
 
     slim_file = 'SLiM_NV_HC'
 
@@ -201,7 +201,7 @@ def main():
 
     remove_trees = pool.map(os.remove, tree_files)
     print("Number of Tree files:", len(list(filter(lambda x : 'Tree_Seq_Popsize_'+str(Ne)+'_' in x and x.endswith('_gen'+str(T+1)+'.trees'),os.listdir()))))
-    f_out = 'HC_Open-win_Res_100MbChrom_Ne%s_Gen%s_%scM' % (Ne, T, float(R)*1e8)+'_1kSims.pckl'
+    f_out = 'HC_Open-win_Res_100MbChrom_Ne{}_Gen{}_{}cM_{}kSims.pckl'.format(Ne, T, float(R)*1e8, num_sim//1000)
     with open(f_out, 'wb') as f:  # Python 3: open(..., 'wb')
         pickle.dump(resolution_all, f, pickle.HIGHEST_PROTOCOL)
 

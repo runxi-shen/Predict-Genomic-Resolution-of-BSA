@@ -80,76 +80,10 @@ def run_slim(slim_file, remove=True):
 
         Returns:
             0
-        
     """
     process = run(['slim', slim_file], stdout=PIPE, shell=False)
     if remove: os.remove(slim_file)
     return 0
-
-
-def BSA_genomic_resolution(tree_file, causal_mut, sample_size, window_type):
-    """
-        BSA_genomic_resolution: get the genomic resolution of a BSA run
-        
-        Args:
-            tree_file (string): the Tree-sequence output of SLiM model
-            causal_mut (int): the position of causal mutation on the chromosome
-            sample_size (int): the number of (DIPLOID) individuals selected from the population
-            window_type (string): specifies the type of window for BSA genomic resolution
-
-        Returns:
-            resolution (float): genomic resolution of a BSA run
-        
-    """
-    ### the window_type can only be open or closed
-    assert (window_type == 'open' or window_type == 'closed'), "Window type could only be \'open\' or \'closed\'"
-    
-    # read in the tree-sequence output file
-    ts = pyslim.load(tree_file)
-
-    # get the number of haplotypes in the WF population of last generation
-    all_samples = list(ts.first().samples())
-    Ne = len(all_samples)//2
-
-    # set the haplotypes of the population in F0
-    genome_tag_dict = OrderedDict((x, y) for x, y in zip(range(Ne*2), [0] * Ne + [1] * Ne))
-
-    # randomly select the samples
-    sample_inds = list(np.random.choice(list(filter(lambda x : x%2==0, all_samples)), sample_size, replace=False))
-    samples = sample_inds + [x + 1 for x in sample_inds]
-
-    # trace back the genealogy of lineages to locate the nearest recombination point to causal mutation 
-    recombination_points = []
-    sample_parent_dict = {}
-    for tree in ts.trees():
-        if tree.interval == ts.first().interval:
-            for sample in samples:
-                u = sample
-                while tree.parent(u) != msprime.NULL_NODE:
-                    u = tree.parent(u)
-                sample_parent_dict[sample] = [genome_tag_dict[u]]
-        else:
-            for sample in samples:
-                u = sample
-                while tree.parent(u) != msprime.NULL_NODE:
-                    u = tree.parent(u)
-                if (sample_parent_dict[sample][-1] != genome_tag_dict[u]):
-                    recombination_points.append(tree.interval[0])
-                sample_parent_dict[sample].append(genome_tag_dict[u])
-
-    # trace back the genealogy of lineages to locate the nearest recombination point to causal mutation 
-    if (window_type == 'open'):
-        # return the open-window resolution of the random samples
-        if (len(list(filter(lambda x:x>=causal_mut, recombination_points))) > 0):
-            return min(list(filter(lambda x:x>=causal_mut, recombination_points))) - causal_mut
-        else:
-            return np.inf
-    elif (window_type == 'closed'):
-        # return the closed-window resolution of the random samples
-        if (len(list(filter(lambda x:x>=causal_mut, recombination_points))) > 0 and len(list(filter(lambda x:x<=causal_mut, recombination_points))) > 0):
-            return min(list(filter(lambda x:x>=causal_mut, recombination_points))) - max(list(filter(lambda x:x<=causal_mut, recombination_points)))
-        else:
-            return np.inf
 
         
 def BSA_stats_tree_seq(tree_file, mut_rate, sample_size, causal_mut, coverage=None, chr_len=int(1e7)):
@@ -177,7 +111,6 @@ def BSA_stats_tree_seq(tree_file, mut_rate, sample_size, causal_mut, coverage=No
     # Create the phenotype tag for each ancestral genome
     genome_tag_dict = OrderedDict((x, y) for x, y in zip(range(genome_pop_size), [1] * (genome_pop_size // 2) + [0] * (genome_pop_size // 2)))
 
-    # print(genome_tag_dict)
     # create the mutations to lay on the genomes
     snp_pos_list = list(np.random.choice(range(chr_len), int(chr_len*mut_rate+np.random.normal(1/mut_rate, 10)*np.random.choice([1,-1])), replace=False))
     snp_pos_list.append(causal_mut)
@@ -215,49 +148,15 @@ def BSA_stats_tree_seq(tree_file, mut_rate, sample_size, causal_mut, coverage=No
     homo_sus_ind_genomes = homo_sus_ind_sample + [x + 1 for x in homo_sus_ind_sample]
 
     # calculate Gprime statistics
-#     selected_snp_g_dict = OrderedDict()
     tree_along_chr = OrderedDict()
     all_snp_g_dict = OrderedDict()
-    all_snp_g_dict_w_cov = OrderedDict()
     start_time = time.time()
-    for tree in filter(lambda tree: tree.interval[0] >= causal_mut - 2e6 and tree.interval[1] <= causal_mut + 2e6, ts.trees()):
-        n3 = 0
-        n4 = 0
-        
-        for sample in homo_res_ind_genomes:
-            u = sample
-            while tree.parent(u) != msprime.NULL_NODE:
-                u = tree.parent(u)
-            n3 += genome_tag_dict[u]
-        if (n3 == sample_size * 2): n3 -= 1e-10
 
-        for sample in homo_sus_ind_genomes:
-            u = sample
-            while tree.parent(u) != msprime.NULL_NODE:
-                u = tree.parent(u)
-            n4 += genome_tag_dict[u]
-
-        if (n4 == 0): n4 += 1e-10
-        n1 = sample_size * 2 - n3
-        n2 = sample_size * 2 - n4
-        
-        exp_n1 = (n1+n2)*(n1+n3) / (n1+n2+n3+n4)
-        exp_n2 = (n1+n2)*(n2+n4) / (n1+n2+n3+n4)
-        exp_n3 = (n1+n3)*(n4+n3) / (n1+n2+n3+n4)
-        exp_n4 = (n4+n2)*(n4+n3) / (n1+n2+n3+n4)
-
-        obs_n = [n1, n2, n3, n4]
-        exp_n = [exp_n1, exp_n2, exp_n3, exp_n4]
-
-        G = 2 * sum([obs_n[i]*np.log(obs_n[i]/exp_n[i]) for i in range(len(obs_n))])
-
-        tree_along_chr[tree.interval] = G
-        snp_in_interval = list(filter(lambda x: tree.interval[0] <= x <= tree.interval[1], snp_pos_list))
-        all_snp_g_dict.update(dict.fromkeys(snp_in_interval, G))
-        
-        ## with short-read sequencing
-        if (coverage != None):
+    ## with short-read sequencing
+    if (coverage != None):
+        for tree in filter(lambda tree: tree.interval[0] >= causal_mut - 2e6 and tree.interval[1] <= causal_mut + 2e6, ts.trees()): 
             snp_in_interval = list(filter(lambda x: tree.interval[0] <= x <= tree.interval[1], snp_pos_list))
+            ## each snp is sequenced independently by short-read sequencing
             for snp in snp_in_interval:
                 n3 = 0
                 n4 = 0
@@ -288,15 +187,50 @@ def BSA_stats_tree_seq(tree_file, mut_rate, sample_size, causal_mut, coverage=No
                 exp_n = [exp_n1, exp_n2, exp_n3, exp_n4]
 
                 G = 2 * sum([obs_n[i]*np.log(obs_n[i]/exp_n[i]) for i in range(len(obs_n))])
-                # all_snp_g_dict_w_cov.update(dict.fromkeys(snp, G))
-                all_snp_g_dict_w_cov[snp] = G
+                tree_along_chr[tree.interval] = G
+                all_snp_g_dict[snp] = G
+    else:
+        for tree in filter(lambda tree: tree.interval[0] >= causal_mut - 2e6 and tree.interval[1] <= causal_mut + 2e6, ts.trees()):
+            n3 = 0
+            n4 = 0
+            
+            for sample in homo_res_ind_genomes:
+                u = sample
+                while tree.parent(u) != msprime.NULL_NODE:
+                    u = tree.parent(u)
+                n3 += genome_tag_dict[u]
+            if (n3 == sample_size * 2): n3 -= 1e-10
 
-    print("SNP G stats finished!", "--- %s seconds ---" % (time.time() - start_time))
-    return(all_snp_g_dict, all_snp_g_dict_w_cov)
+            for sample in homo_sus_ind_genomes:
+                u = sample
+                while tree.parent(u) != msprime.NULL_NODE:
+                    u = tree.parent(u)
+                n4 += genome_tag_dict[u]
+
+            if (n4 == 0): n4 += 1e-10
+            n1 = sample_size * 2 - n3
+            n2 = sample_size * 2 - n4
+            
+            exp_n1 = (n1+n2)*(n1+n3) / (n1+n2+n3+n4)
+            exp_n2 = (n1+n2)*(n2+n4) / (n1+n2+n3+n4)
+            exp_n3 = (n1+n3)*(n4+n3) / (n1+n2+n3+n4)
+            exp_n4 = (n4+n2)*(n4+n3) / (n1+n2+n3+n4)
+
+            obs_n = [n1, n2, n3, n4]
+            exp_n = [exp_n1, exp_n2, exp_n3, exp_n4]
+
+            G = 2 * sum([obs_n[i]*np.log(obs_n[i]/exp_n[i]) for i in range(len(obs_n))])
+
+            tree_along_chr[tree.interval] = G
+            snp_in_interval = list(filter(lambda x: tree.interval[0] <= x <= tree.interval[1], snp_pos_list))
+            all_snp_g_dict.update(dict.fromkeys(snp_in_interval, G))
+
+    print("SNP G stats finished for sample size {} coverage {}!".format(sample_size, coverage), "--- %s seconds ---" % (time.time() - start_time))
+    return all_snp_g_dict
 
 
 """
-    Smoothing functions for G and A_d
+    Smoothing functions for G statistic
 """
 def tricube_smooth_G(all_snp_g_dict, win_size=10000, chr_len=10**7):
     """
@@ -317,43 +251,21 @@ def tricube_smooth_G(all_snp_g_dict, win_size=10000, chr_len=10**7):
         for snp in snp_in_window:
             tricube_weighted_Gprime_dict[snp] = snp_Gprime
 #             print(snp, snp_Gprime)
+
     # print("SNP G\' finished!", "--- %s seconds ---" % (time.time() - start_time))
     peak_snps = [x[0] for x in list(filter(lambda x: abs(x[1]-max(tricube_weighted_Gprime_dict.values()))<=0.01, tricube_weighted_Gprime_dict.items()))]
-#     print(peak_snps)
-#     print(np.min(peak_snps), np.max(peak_snps))
-    resolution = np.max(peak_snps) - np.min(peak_snps)
-    return(tricube_weighted_Gprime_dict, resolution)
 
-
-# def smooth_window_ad(ancestry_diff_dict, num_flanking=4):
-#     """
-#         smooth_window_ad(all_snp_g_dict, win_size=10000, chr_len=10**7) smooths G statistic of each SNP using a tricube-weighted smoothing function
-#     """
-#     window_keys = list(ancestry_diff_dict.keys())
-#     window_values = list(ancestry_diff_dict.values())
+#     max_window = list(filter(lambda x: np.isclose(x[1],max(tricube_weighted_Gprime_dict.values())), tricube_weighted_Gprime_dict.items()))
+#     max_window_bounds = (max_window[0][0], max_window[-1][0])
     
-#     # smoothing weights
-#     weights = list(range(1,num_flanking+2))+list(range(num_flanking,0,-1))
-#     sum_weights = float(sum(weights))
-
-#     assert num_flanking <= len(window_values)-num_flanking-1
-#     for win_idx in range(num_flanking, len(window_values)-num_flanking-1):
-#         windows_select = [window_values[i] for i in range(win_idx-num_flanking, win_idx+num_flanking+1)]
-#         weighted_window = [val*weight for val, weight in zip(windows_select, weights)]
-#         window_values[win_idx] = float(sum(weighted_window)) / sum_weights
-    
-#     smoothed_dict = OrderedDict([(key, val) for key, val in zip(window_keys, window_values)])
-#     peak_snps = sorted([x[0] for x in list(filter(lambda x: abs(x[1]-max(smoothed_dict.values()))<=0.01, smoothed_dict.items()))])
-# #     print(peak_snps[0][0], peak_snps[-1][-1])
-#     resolution = peak_snps[-1][-1] - peak_snps[0][0]
-#     return(smoothed_dict, resolution)
+    return tricube_weighted_Gprime_dict
 
 
 def main():
     """
         Define some simulation parameters
     """
-    Cap_N = '2500'
+    Cap_N = '2000'
     MUT_RATE = 1e-3
     Ne = 100
     # Remember: T = 11 is for generation starting index as 1 in SLiM model
@@ -362,7 +274,6 @@ def main():
     R = '1e-8'
     chr_len = '1e7-1'
     mut_pos = 5e6
-#     window_type = 'open'
     slim_file = 'SLiM_NV_BSA.slim'
     tree_file = 'SLiM_NV_BSA.trees'
     
@@ -371,25 +282,24 @@ def main():
     # run the SLiM file
     run_slim_file = run_slim(slim_file)
     
-    # get the summary statistics
-    sample_size = 1000
-    coverage = 50
+    # get the summary statistic
+    all_snp_g_dict_s1000 = BSA_stats_tree_seq(tree_file, MUT_RATE, 500, mut_pos, coverage=None)
+    all_snp_gprime_dict_s1000 = tricube_smooth_G(all_snp_g_dict_s1000)
+    with open('BSA_Resolution_vs_Statistics_s1000_noCov.pckl', 'wb') as f:  # Python 3: open(..., 'wb')
+        pickle.dump((all_snp_g_dict_s1000, all_snp_gprime_dict_s1000), f, pickle.HIGHEST_PROTOCOL)
     
-#     all_snp_g_dict, all_snp_g_dict_w_cov = BSA_stats_tree_seq(tree_file, MUT_RATE, sample_size, mut_pos, coverage=coverage)
-    two_g_stats_dicts = BSA_stats_tree_seq(tree_file, MUT_RATE, sample_size, mut_pos, coverage=coverage)
+    all_snp_g_dict_s1000_c100 = BSA_stats_tree_seq(tree_file, MUT_RATE, 500, mut_pos, coverage=100)
+    all_snp_gprime_dict_s1000_c100 = tricube_smooth_G(all_snp_g_dict_s1000_c100)
+    with open('BSA_Resolution_vs_Statistics_s1000_cov100.pckl', 'wb') as f:  # Python 3: open(..., 'wb')
+        pickle.dump((all_snp_g_dict_s1000_c100,all_snp_gprime_dict_s1000_c100), f, pickle.HIGHEST_PROTOCOL)
     
-#     smoothed_dicts = ()
-#     tricube_weighted_Gprime_dict, resolution_Gprime = tricube_smooth_G(all_snp_g_dict)
-#     if (coverage != None):
-#         tricube_weighted_Gprime_w_cov, resolution_Gprime_w_cov = tricube_smooth_G(all_snp_g_dict_w_cov)
-#         smoothed_dicts.append((tricube_weighted_Gprime_w_cov, tricube_weighted_Gprime_dict))
-#     else:
-#         smoothed_dicts.append((dict(), tricube_weighted_Gprime_dict))
-    
-    with open('BSA_Resolution_vs_Statistics_SampleSize-%s_Coverage-%s' % (sample_size*2, coverage)+'.pckl', 'wb') as f:  # Python 3: open(..., 'wb')
-        pickle.dump(two_g_stats_dicts, f, pickle.HIGHEST_PROTOCOL)
+    all_snp_g_dict_s100 = BSA_stats_tree_seq(tree_file, MUT_RATE, 50, mut_pos, coverage=None)
+    all_snp_gprime_dict_s100 = tricube_smooth_G(all_snp_g_dict_s100)
+    with open('BSA_Resolution_vs_Statistics_s100_noCov.pckl', 'wb') as f:  # Python 3: open(..., 'wb')
+        pickle.dump((all_snp_g_dict_s100, all_snp_gprime_dict_s100), f, pickle.HIGHEST_PROTOCOL)
 
-    print("File output successfully!")
+    print("BSA Summary Statistics output successfully!")
+    
     
 if __name__ == '__main__':
     main()
