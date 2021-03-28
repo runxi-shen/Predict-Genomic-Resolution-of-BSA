@@ -1,1 +1,6 @@
+This directory contains all the simulation data plotted in the BSA paper figures. 
 
+BSA_Resolution_vs_Statistics_1.0cM_Popsize_100_SampleSize_20.pckl is the BSA example summary statistic in Figure 1;
+BSA_Open-win_Res_100MbChrom_Ne{}_Gen{}_1.0cM_5kSims.pckl are the BSA simulation data with different Ne and T in Figure 5;
+HC_Open-win_Res_100MbChrom_Ne100_Gen11_1.0cM_5kSims.pckl, IM_Open-win_Res_100MbChrom_Ne100_Gen11_1.0cM_Non-TreeSeq_5kSims.pckl are the HC and IM simulations in Figure 6;
+BSA_Resolution_vs_Statistics_*.pckl are the simulation data in Figure 7 for BSA with short-read sequencing;
