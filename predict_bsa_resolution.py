@@ -61,15 +61,15 @@ def main():
     ## sample size (int): the number of total diploid individuals 
     ## in two bulks sampled for sequencing in the BSA experiment
     S = int(sys.argv[4])
-    ## model (str): specify which model is used to calculate the resolution ("approx" or "recursion")
+    ## model (str): specify which model is used to calculate the resolution ("integration" or "recursion")
     model = sys.argv[5]
     
-    if (model == 'approx'):
-        print("Expected Genomic Resolution of BSA Experiment with Ne={}, Gen={}, R={:.3e}, s={} using approximate model is: {:.3e} bp".format(Ne, T, R, S, calc_BSA_open_win_res_fin(Ne, R, S, T)))
+    if (model == 'integration'):
+        print("Expected Genomic Resolution of BSA Experiment with Ne={}, Gen={}, R={:.3e}, s={} using integration model is: {:.3e} bp".format(Ne, T, R, S, calc_BSA_open_win_res_fin(Ne, R, S, T)))
     elif (model == 'recursion'):
         print("Expected Genomic Resolution of BSA Experiment with Ne={}, Gen={}, R={:.3e}, s={} using recursion model is: {:.3e} bp".format(Ne, T, R, S, calc_BSA_open_win_res_recursion(Ne, R, S, T)))
     else:
-        print("No model is selected. Please specify 'approx' or 'recursion' for the model parameter.")
+        print("No model is selected. Please specify 'integration' or 'recursion' for the model parameter.")
         
         
 if __name__ == '__main__':
