@@ -7,3 +7,5 @@ This repository stores the codes that run SLiM simulations and plot the graphs f
 `python predict_bsa_resolution.py 100 10 1e-8 20 integration` uses the integration model to calculate the expected genomic resolution of a BSA experiment with _Ne_=100, running from F0 to F10, an estimated recombination probablity of 1e-8 and sampling a total of 20 diploid individuals for genome sequencing. The output of running the script would be:
 
 `Expected Genomic Resolution of BSA Experiment with Ne=100, Gen=10, R=1.000e-08, s=20 using integration model is: 7.149e+05 bp`.
+
+The related publication could be found at: https://academic.oup.com/g3journal/article/12/3/jkac012/6523970.
